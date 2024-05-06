@@ -31,6 +31,9 @@ export class RoomModel {
 
   @Prop()
   currentVideoUrl: string;
+
+  @Prop()
+  thumbnailUrl: string;
 }
 
 export const RoomSchema = SchemaFactory.createForClass(RoomModel);
