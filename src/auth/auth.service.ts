@@ -9,9 +9,17 @@ import { hash, compare } from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { TokenDto } from './dto/token.dto';
 import { SignUpResponseDto } from './dto/sign_up_response.dto';
+import { CookieOptions } from 'express';
 
 @Injectable()
 export class AuthService {
+  static cookieOptions: CookieOptions = {
+    expires: new Date(new Date().getTime() + 60 * 60 * 24 * 1000),
+    sameSite: 'strict',
+    httpOnly: true,
+    signed: true,
+  };
+
   constructor(
     @Inject(UsersService)
     private usersService: UsersService,
