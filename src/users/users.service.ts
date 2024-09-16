@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { UserModel } from './schema/user.schema';
 import { Model } from 'mongoose';
 import { Request } from 'express';
-import { GetUserDto } from './dto/user.dto';
+import { GetUserDto, UpdateUserDto } from './dto/user.dto';
 
 @Injectable()
 export class UsersService {
@@ -40,12 +40,33 @@ export class UsersService {
     return users.map((user) => new GetUserDto(user));
   }
 
-  async createUser(email: string, pass: string): Promise<UserModel> {
-    return (await new this.userModel({ email, pass }).save()).toObject();
+  async createUser(
+    email: string,
+    pass: string,
+    name?: string,
+  ): Promise<UserModel> {
+    email = email.toLowerCase().trim();
+    name = name?.trim();
+    return (
+      await new this.userModel({
+        email,
+        pass,
+        name: name,
+      }).save()
+    ).toObject();
+  }
+
+  async update(update: UpdateUserDto, userId: string) {
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await user.updateOne(update);
   }
 
   async findByEmail(email: string) {
-    return await this.userModel.findOne({ email });
+    return await this.userModel.findOne({ email }).lean();
   }
 
   async findById(id: string) {

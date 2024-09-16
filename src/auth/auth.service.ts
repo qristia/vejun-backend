@@ -1,9 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsersService } from 'src/users/users.service';
 import { hash, compare } from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
@@ -14,14 +9,13 @@ import { CookieOptions } from 'express';
 @Injectable()
 export class AuthService {
   static cookieOptions: CookieOptions = {
-    expires: new Date(new Date().getTime() + 60 * 60 * 24 * 1000),
+    expires: new Date(Date.now() + 1000 * 60 * 60 * 24),
     sameSite: 'strict',
     httpOnly: true,
     signed: true,
   };
 
   constructor(
-    @Inject(UsersService)
     private usersService: UsersService,
     private jwtService: JwtService,
   ) {}
@@ -29,16 +23,37 @@ export class AuthService {
   async signIn(email: string, password: string): Promise<TokenDto> {
     const user = await this.usersService.findByEmail(email);
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new UnauthorizedException('Wrong email or password');
     }
 
     const correct = await compare(password, user.pass);
-
     if (!correct) {
-      throw new UnauthorizedException('Wrong password');
+      throw new UnauthorizedException('Wrong email or password');
     }
 
     return { access_token: await this.makeAccessToken(user._id.toString()) };
+  }
+
+  async signUp(
+    email: string,
+    password: string,
+    username?: string,
+  ): Promise<SignUpResponseDto> {
+    const exists = await this.usersService.findByEmail(email);
+    if (exists) {
+      throw new UnauthorizedException('email already in use');
+    }
+    const hashedPass = await hash(password, 10);
+    const name = username || email.split('@')[0];
+    const user = await this.usersService.createUser(email, hashedPass, name);
+    return {
+      id: user._id.toString(),
+      access_token: await this.makeAccessToken(user._id.toString()),
+    };
+  }
+
+  async logout() {
+    this;
   }
 
   private async makeAccessToken(userId: string): Promise<string> {
@@ -49,17 +64,13 @@ export class AuthService {
     });
   }
 
-  async signUp(email: string, password: string): Promise<SignUpResponseDto> {
-    const exists = await this.usersService.findByEmail(email);
-    if (exists) {
-      throw new UnauthorizedException('email already in use');
+  async verifyToken(token: string): Promise<any> {
+    try {
+      return await this.jwtService.verifyAsync(token, {
+        secret: 'secret',
+      });
+    } catch (err) {
+      throw new UnauthorizedException('Invalid token');
     }
-
-    const hashedPass = await hash(password, 10);
-    const user = await this.usersService.createUser(email, hashedPass);
-    return {
-      id: user._id.toString(),
-      access_token: await this.makeAccessToken(user._id.toString()),
-    };
   }
 }

@@ -8,12 +8,14 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { IS_PUBLIC_KEY } from 'src/util/public_metadata';
+import { AuthService } from './auth.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   constructor(
     private jwtService: JwtService,
     private reflector: Reflector,
+    private authService: AuthService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -32,14 +34,8 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token');
     }
 
-    try {
-      const payload = await this.jwtService.verifyAsync(token, {
-        secret: 'secret',
-      });
-      request['user'] = payload;
-    } catch {
-      throw new UnauthorizedException('Invalid token');
-    }
+    const payload = await this.authService.verifyToken(token);
+    request['user'] = payload;
 
     return true;
   }

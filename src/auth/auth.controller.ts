@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -15,7 +16,7 @@ import { Response as EResponse } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
@@ -30,8 +31,25 @@ export class AuthController {
   @Post('sign-up')
   @Public()
   async signUp(@Body() req: SignUpDto, @Response() res: EResponse) {
-    const signUp = await this.authService.signUp(req.email, req.password);
+    const signUp = await this.authService.signUp(
+      req.email,
+      req.password,
+      req.name,
+    );
     res.cookie('accessToken', signUp.access_token, AuthService.cookieOptions);
     return res.send({ id: signUp.id });
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Get('logout')
+  @Public()
+  async logout(@Response() res: EResponse) {
+    res.cookie('accessToken', 'none', {
+      sameSite: 'strict',
+      httpOnly: true,
+      signed: false,
+      expires: new Date(Date.now() + 5 * 1000),
+    });
+    return res.send();
   }
 }

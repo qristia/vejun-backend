@@ -5,7 +5,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateRoomDto, UpdateRoomDto } from './dto/room.dto';
+import {
+  ChangeRoomOwnerDto,
+  CreateRoomDto,
+  UpdateRoomDto,
+} from './dto/room.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { RoomModel } from './schema/room.schema';
 import { Model } from 'mongoose';
@@ -49,6 +53,23 @@ export class RoomService {
   }
 
   async editRoom(update: UpdateRoomDto, roomId: string, userId: string) {
+    const room = await this.roomModel.findById(roomId);
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    if (userId !== room.owner) {
+      throw new ForbiddenException('Not the owner of the room');
+    }
+
+    await room.updateOne(update);
+  }
+
+  async changeRoomOwner(
+    update: ChangeRoomOwnerDto,
+    roomId: string,
+    userId: string,
+  ) {
     const room = await this.roomModel.findById(roomId);
     if (!room) {
       throw new NotFoundException('Room not found');

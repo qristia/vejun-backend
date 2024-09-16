@@ -40,6 +40,11 @@ export class UpdateRoomDto {
   thumbnailUrl?: string;
 }
 
+export class ChangeRoomOwnerDto {
+  @IsString()
+  owner: string;
+}
+
 export class GetRoomDto extends BaseDto {
   @Expose()
   name: string;
