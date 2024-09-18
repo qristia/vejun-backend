@@ -16,8 +16,8 @@ export function authMiddleware(
     socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>,
     next: (err?: ExtendedError) => void,
   ) {
-    const authToken = socket.data.signedCookies.accessToken as string;
-    const roomId = socket.handshake.query.roomId as string;
+    const authToken = socket.data.signedCookies?.accessToken as string;
+    const roomId = socket.handshake.query?.roomId as string;
     try {
       const payload = await authService.verifyToken(authToken);
       const user = await userService.findById(payload.sub);
