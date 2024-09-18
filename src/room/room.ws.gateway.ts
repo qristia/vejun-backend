@@ -1,4 +1,9 @@
-import { OnModuleInit, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Logger,
+  OnModuleInit,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -8,7 +13,7 @@ import {
 } from '@nestjs/websockets';
 
 import {
-  VideoEvent,
+  VideoPlayingChangeEvent,
   VideoUpdateEvent,
   VideoUrlChangeEvent,
 } from './events/video.event';
@@ -36,6 +41,7 @@ import { YoutubeService } from 'src/youtube/youtube.service';
 export class RoomGateway implements OnModuleInit {
   @WebSocketServer()
   private server: Server;
+  private _logger = new Logger();
   private readonly redisClient = createClient({
     url: this.configService.get<string>('REDIS_HOST'),
   });
@@ -70,21 +76,34 @@ export class RoomGateway implements OnModuleInit {
       const querySessionId = socket.handshake.query?.sessionId as string;
       const roomId = socket.handshake.query.roomId as string;
 
-      const sessionId = querySessionId || v4();
-      const existingSocketId = await pubClient.get(sessionId);
-
-      if (existingSocketId) {
-        const oldSocket = this.server.sockets.sockets.get(existingSocketId);
-        if (oldSocket) oldSocket.disconnect();
-      }
-      await pubClient.set(sessionId, socket.id);
-
-      if (!roomId) socket.disconnect();
-
       const user = {
         id: socket.data.user.id,
         name: socket.data.user.name,
       };
+
+      const sessionId = querySessionId || v4();
+      const existingSocketId = await pubClient.get(user.id);
+
+      this._logger.debug(
+        `client: ${user.name} connected with sessionId: ${sessionId}`,
+        `at: ${new Date()}`,
+        'onSocketConnection',
+      );
+      if (existingSocketId) {
+        this._logger.debug(
+          `Client was previously connected with socketId: ${existingSocketId}`,
+          'onSocketConnection',
+        );
+        const oldSocket = this.server.sockets.sockets.get(existingSocketId);
+        if (oldSocket) {
+          this._logger.debug(
+            `Disconnecting previous client: ${existingSocketId}`,
+            'onSocketConnection',
+          );
+          oldSocket.disconnect();
+        }
+      }
+      await pubClient.set(user.id, socket.id);
 
       socket.data.roomAt = roomId;
       socket.data.sessionId = sessionId;
@@ -92,20 +111,21 @@ export class RoomGateway implements OnModuleInit {
       socket.emit('session', { sessionId });
 
       socket.on('disconnect', async () => {
-        await this.roomService.leaveRoom(roomId, user.id);
         await pubClient.del(sessionId);
+        await this.roomService.leaveRoom(roomId, user.id);
         socket.broadcast.to(roomId).emit('room:user-left', user);
-        console.log(`Client disconnected with session ID: ${sessionId}`);
+        if (!existingSocketId)
+          this._logger.debug(
+            `Client disconnected with sessionId: ${sessionId}`,
+            'onSocketConnection',
+          );
       });
 
       const connectedUsers = (await this.server.in(roomId).fetchSockets()).map(
         ({ data }) => ({ id: data.user.id, name: data.user.name }),
       );
-      console.log({ connectedUsers });
       socket.emit('room:users', connectedUsers);
       socket.broadcast.to(roomId).emit('room:user-joined', user);
-
-      console.log(`Client connected with session ID: ${sessionId}`);
     });
   }
 
@@ -124,7 +144,7 @@ export class RoomGateway implements OnModuleInit {
   @SubscribeMessage('room:video-playing-change')
   handleRoomVideoPlay(
     @ConnectedSocket() client: Socket,
-    @MessageBody() event: VideoEvent,
+    @MessageBody() event: VideoPlayingChangeEvent,
   ): void {
     this.broadcastToRoom('room:video-playing-state', event, client);
   }
@@ -174,7 +194,7 @@ export class RoomGateway implements OnModuleInit {
     if (!target) return;
     const { id, name } = target.data.user;
 
-    await this.redisClient.setEx(`room:kick:${id}`, 10, id);
+    await this.redisClient.setEx(`room:kick:${id}`, 30, id);
     target.disconnect();
 
     this.emitToRoom(
