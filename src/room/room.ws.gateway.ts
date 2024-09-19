@@ -20,10 +20,8 @@ import {
 
 import { Server, Socket } from 'socket.io';
 import { ChatMessageEvent } from './events/chat-message.event';
-import { createClient } from 'redis';
 
 import { ConfigService } from '@nestjs/config';
-import { createAdapter } from '@socket.io/redis-adapter';
 import { RoomService } from './room.service';
 import { UsersService } from 'src/users/users.service';
 import { AuthService } from 'src/auth/auth.service';
@@ -34,20 +32,17 @@ import { IsHostGuard } from './room.ws.guard';
 import { cookieParserMiddleware } from './middleware/cookie-parser.ws.middleware';
 import { RoomHostTargetsEvent } from './events/host-change';
 import { YoutubeService } from 'src/youtube/youtube.service';
+import { RedisService } from 'src/redis/redis.service';
 
-@WebSocketGateway({
-  cors: { origin: 'http://localhost:5173', credentials: true },
-})
+@WebSocketGateway()
 export class RoomGateway implements OnModuleInit {
   @WebSocketServer()
   private server: Server;
   private _logger = new Logger();
-  private readonly redisClient = createClient({
-    url: this.configService.get<string>('REDIS_HOST'),
-  });
 
   constructor(
     private readonly configService: ConfigService,
+    private readonly redisService: RedisService,
     private readonly roomService: RoomService,
     private readonly userService: UsersService,
     private readonly authService: AuthService,
@@ -55,11 +50,8 @@ export class RoomGateway implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const pubClient = this.redisClient;
-    const subClient = pubClient.duplicate();
+    const redis = this.redisService.getClient();
 
-    await Promise.all([pubClient.connect(), subClient.connect()]);
-    this.server.adapter(createAdapter(pubClient, subClient));
     this.server.use(
       cookieParserMiddleware(this.configService.get<string>('COOKIES_SECRET')),
     );
@@ -68,7 +60,7 @@ export class RoomGateway implements OnModuleInit {
         this.authService,
         this.userService,
         this.roomService,
-        this.redisClient,
+        this.redisService.getClient(),
       ),
     );
 
@@ -82,7 +74,7 @@ export class RoomGateway implements OnModuleInit {
       };
 
       const sessionId = querySessionId || v4();
-      const existingSocketId = await pubClient.get(user.id);
+      const existingSocketId = await redis.get(user.id);
 
       this._logger.debug(
         `client: ${user.name} connected with sessionId: ${sessionId}`,
@@ -103,17 +95,25 @@ export class RoomGateway implements OnModuleInit {
           oldSocket.disconnect();
         }
       }
-      await pubClient.set(user.id, socket.id);
+      await redis.set(user.id, socket.id);
 
       socket.data.roomAt = roomId;
       socket.data.sessionId = sessionId;
+
       socket.join(roomId);
       socket.emit('session', { sessionId });
 
-      socket.on('disconnect', async () => {
-        await pubClient.del(sessionId);
-        await this.roomService.leaveRoom(roomId, user.id);
+      const connectedUsers = (await this.server.in(roomId).fetchSockets()).map(
+        ({ data }) => ({ id: data.user.id, name: data.user.name }),
+      );
+      socket.emit('room:users', connectedUsers);
+      socket.broadcast.to(roomId).emit('room:user-joined', user);
+
+      socket.on('disconnect', async (reason: string) => {
+        console.log("disconnect reason: ", reason)
         socket.broadcast.to(roomId).emit('room:user-left', user);
+        await redis.del(sessionId);
+        await this.roomService.leaveRoom(roomId, user.id);
         if (!existingSocketId)
           this._logger.debug(
             `Client disconnected with sessionId: ${sessionId}`,
@@ -121,11 +121,6 @@ export class RoomGateway implements OnModuleInit {
           );
       });
 
-      const connectedUsers = (await this.server.in(roomId).fetchSockets()).map(
-        ({ data }) => ({ id: data.user.id, name: data.user.name }),
-      );
-      socket.emit('room:users', connectedUsers);
-      socket.broadcast.to(roomId).emit('room:user-joined', user);
     });
   }
 
@@ -194,8 +189,8 @@ export class RoomGateway implements OnModuleInit {
     if (!target) return;
     const { id, name } = target.data.user;
 
-    await this.redisClient.setEx(`room:kick:${id}`, 30, id);
-    target.disconnect();
+    await this.redisService.getClient().setEx(`room:kick:${target.data.roomAt}:${id}`, 30, id);
+    target.disconnect(true);
 
     this.emitToRoom(
       'room:user-kicked',

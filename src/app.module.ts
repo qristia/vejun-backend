@@ -7,10 +7,12 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { YoutubeModule } from './youtube/youtube.module';
+import { RedisModule } from './redis/redis.module';
 
+const envFile = process.env.NODE_ENV ? '.env.dev' : '.env'
 @Module({
   imports: [
-    ConfigModule.forRoot({ envFilePath: '.env', isGlobal: true }),
+    ConfigModule.forRoot({ envFilePath: envFile, isGlobal: true }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -21,6 +23,7 @@ import { YoutubeModule } from './youtube/youtube.module';
         return { uri, user, pass };
       },
     }),
+    RedisModule,
     RoomModule,
     UsersModule,
     AuthModule,
