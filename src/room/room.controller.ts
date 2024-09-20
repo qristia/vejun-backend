@@ -33,12 +33,8 @@ export class RoomController {
 
   @Get(':id')
   async getRoom(@Param('id') roomId: string): Promise<GetRoomDto> {
-    try {
-      const room = await this.roomService.findById(roomId);
-      return new GetRoomDto(room);
-    } catch (e) {
-      throw e;
-    }
+    const room = await this.roomService.findById(roomId);
+    return new GetRoomDto(room);
   }
 
   @Post()
@@ -48,17 +44,13 @@ export class RoomController {
   ): Promise<GetRoomDto> {
     const userId = getUserIdFromReq(req);
 
-    try {
-      const createdRoom = await this.roomService.createRoom(body, userId);
-      const room = new GetRoomDto(createdRoom);
+    const createdRoom = await this.roomService.createRoom(body, userId);
+    const room = new GetRoomDto(createdRoom);
 
-      if (body.currentVideoUrl) {
-        this.addThumbnailToRoom(body.currentVideoUrl, room.id, userId);
-      }
-      return room;
-    } catch (e) {
-      throw e;
+    if (body.currentVideoUrl) {
+      this.addThumbnailToRoom(body.currentVideoUrl, room.id, userId);
     }
+    return room;
   }
 
   @Patch(':id')
@@ -77,12 +69,8 @@ export class RoomController {
     @Param('id') roomId: string,
   ): Promise<GetRoomDto> {
     const userId = getUserIdFromReq(req);
-    try {
-      const room = await this.roomService.joinRoom(roomId, userId);
-      return new GetRoomDto(room);
-    } catch (e) {
-      throw e;
-    }
+    const room = await this.roomService.joinRoom(roomId, userId);
+    return new GetRoomDto(room);
   }
 
   @Delete('leave/:id')
