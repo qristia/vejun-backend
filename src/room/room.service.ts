@@ -132,7 +132,7 @@ export class RoomService {
           {
             roomId: room.id,
           },
-          { delay: 5000 },
+          { delay: 600_000 },
         );
         this.logger.debug(
           `added deletion job: ${job.id} of room: ${room.id}`,
