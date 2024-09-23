@@ -44,14 +44,14 @@ export class YoutubeService {
     }
   }
 
-  async searchVideo(query: string): Promise<YoutubeSearchResult> {
+  async searchVideo(query: string, max = 10): Promise<YoutubeSearchResult> {
     const apiKey = this.configService.get<string>("YT_API_KEY");
     try {
       const videos = await axios.get<YoutubeSearchResult>(this.youtubeUrl, {
         params: {
           part: 'snippet',
           q: query,
-          maxResults: 6,
+          maxResults: max,
           type: 'video',
           key: apiKey,
         },

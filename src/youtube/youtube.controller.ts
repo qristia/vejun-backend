@@ -12,7 +12,10 @@ export class YoutubeController {
   }
 
   @Get('search')
-  async searchVideo(@Query('q') query: string): Promise<YoutubeSearchResult> {
-    return await this.youtubeService.searchVideo(query);
+  async searchVideo(
+    @Query('q') query: string,
+    @Query('max') max: number,
+  ): Promise<YoutubeSearchResult> {
+    return await this.youtubeService.searchVideo(query, max);
   }
 }
