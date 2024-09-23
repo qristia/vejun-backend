@@ -110,10 +110,9 @@ export class RoomGateway implements OnModuleInit {
       socket.broadcast.to(roomId).emit('room:user-joined', user);
 
       socket.on('disconnect', async (reason: string) => {
-        console.log("disconnect reason: ", reason)
         socket.broadcast.to(roomId).emit('room:user-left', user);
         await redis.del(sessionId);
-        await this.roomService.leaveRoom(roomId, user.id);
+        this.roomService.leaveRoom(roomId, user.id).catch(() => {});
         if (!existingSocketId)
           this._logger.debug(
             `Client disconnected with sessionId: ${sessionId}`,

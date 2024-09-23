@@ -8,6 +8,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { YoutubeModule } from './youtube/youtube.module';
 import { RedisModule } from './redis/redis.module';
+import { BullModule } from '@nestjs/bullmq';
 
 const envFile = process.env.NODE_ENV ? '.env.dev' : '.env'
 @Module({
@@ -24,6 +25,20 @@ const envFile = process.env.NODE_ENV ? '.env.dev' : '.env'
       },
     }),
     RedisModule,
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => {
+        const url = configService.get<string>('REDIS_HOST');
+        const password = configService.get<string>('REDIS_PASSWORD');
+        return {
+          connection: {
+            url,
+            password,
+          },
+        };
+      },
+    }),
     RoomModule,
     UsersModule,
     AuthModule,
