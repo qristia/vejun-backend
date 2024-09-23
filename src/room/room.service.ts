@@ -94,7 +94,7 @@ export class RoomService {
         throw new NotFoundException('Room not found');
       }
 
-      if (room.users.includes(userId)) return;
+      if (room.users.includes(userId)) return room.toObject();
 
       const jobId = await this.redisService.getClient().get(`room:${roomId}:deletionJob`)
       if (jobId) {
@@ -110,7 +110,7 @@ export class RoomService {
       await room.updateOne({
         $addToSet: { users: userId },
       });
-
+      room.users.push(userId);
       return room.toObject();
     } catch (e) {
       console.log(e);
