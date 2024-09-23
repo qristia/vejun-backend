@@ -1,15 +1,14 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import mongoose from 'mongoose';
+import { generate } from 'shortid';
 
 @Schema({
   collection: 'rooms',
 })
 export class RoomModel {
   @Prop({
-    auto: true,
-    type: mongoose.Schema.Types.ObjectId,
+    default: generate,
   })
-  _id: mongoose.Schema.Types.ObjectId;
+  _id: string;
 
   @Prop({ required: true })
   owner: string;

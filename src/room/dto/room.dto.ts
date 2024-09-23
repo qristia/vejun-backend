@@ -45,7 +45,17 @@ export class ChangeRoomOwnerDto {
   owner: string;
 }
 
-export class GetRoomDto extends BaseDto {
+export class GetRoomDto {
+  constructor(partial: Partial<GetRoomDto>) {
+    Object.assign(this, partial);
+  }
+  _id: string;
+
+  @Expose()
+  get id(): string {
+    return this._id.toString();
+  }
+
   @Expose()
   name: string;
   @Expose()
@@ -53,7 +63,7 @@ export class GetRoomDto extends BaseDto {
   @Expose()
   isPrivate: boolean;
   @Expose()
-  users: BaseDto[];
+  users: string[];
   @Expose()
   queue: string[];
   @Expose()
