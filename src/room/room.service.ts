@@ -43,18 +43,13 @@ export class RoomService {
     { name, currentVideoUrl, isPrivate }: CreateRoomDto,
     owner: string,
   ): Promise<RoomModel> {
-    try {
-      const room = new this.roomModel({
-        name,
-        owner,
-        isPrivate,
-        currentVideoUrl,
-      });
-      return (await room.save()).toObject();
-    } catch (e) {
-      this.logger.error(e.message);
-      throw e;
-    }
+    const room = new this.roomModel({
+      name,
+      owner,
+      isPrivate,
+      currentVideoUrl,
+    });
+    return (await room.save()).toObject();
   }
 
   async editRoom(update: UpdateRoomDto, roomId: string, userId: string) {
@@ -88,81 +83,70 @@ export class RoomService {
   }
 
   async joinRoom(roomId: string, userId: string): Promise<RoomModel> {
-    try {
-      const room = await this.roomModel.findById(roomId);
-      if (!room) {
-        throw new NotFoundException('Room not found');
-      }
-
-      if (room.users.includes(userId)) return room.toObject();
-
-      const jobId = await this.redisService.getClient().get(`room:${roomId}:deletionJob`)
-      if (jobId) {
-        this.logger.debug(
-          `found deletion job: ${jobId} in room: ${room.id}`,
-          'roomService',
-        );
-        const job = await this.roomQueue.getJob(jobId);
-        await this.redisService.getClient().del(`room:${roomId}:deletionJob`);
-        await job?.remove();
-      }
-
-      await room.updateOne({
-        $addToSet: { users: userId },
-      });
-      room.users.push(userId);
-      return room.toObject();
-    } catch (e) {
-      console.log(e);
-      throw e;
+    const room = await this.roomModel.findById(roomId);
+    if (!room) {
+      throw new NotFoundException('Room not found');
     }
+
+    if (room.users.includes(userId)) return room.toObject();
+
+    const jobId = await this.redisService
+      .getClient()
+      .get(`room:${roomId}:deletionJob`);
+    if (jobId) {
+      this.logger.debug(
+        `found deletion job: ${jobId} in room: ${room.id}`,
+        'roomService',
+      );
+      const job = await this.roomQueue.getJob(jobId);
+      await this.redisService.getClient().del(`room:${roomId}:deletionJob`);
+      await job?.remove();
+    }
+
+    await room.updateOne({
+      $addToSet: { users: userId },
+    });
+    room.users.push(userId);
+    return room.toObject();
   }
 
   async leaveRoom(roomId: string, userId: string): Promise<void> {
-    try {
-      const room = await this.roomModel.findById(roomId);
-      if (!room) {
-        throw new NotFoundException('Room not found');
-      }
-      if (!room.users.includes(userId)) return;
-
-      if (room.users.length === 1) {
-        const job = await this.roomQueue.add(
-          "room.deletion",
-          {
-            roomId: room.id,
-          },
-          { delay: 600_000 },
-        );
-        this.logger.debug(
-          `added deletion job: ${job.id} of room: ${room.id}`,
-          'roomService',
-        );
-        await this.redisService.getClient().set(`room:${room.id}:deletionJob`, job.id);
-      }
-
-      await room.updateOne({
-        $pull: { users: userId },
-      });
-    } catch (e) {
-      this.logger.error(e.message);
-      throw e;
+    const room = await this.roomModel.findById(roomId);
+    if (!room) {
+      throw new NotFoundException('Room not found');
     }
+    if (!room.users.includes(userId)) return;
+
+    if (room.users.length === 1) {
+      const job = await this.roomQueue.add(
+        'room.deletion',
+        {
+          roomId: room.id,
+        },
+        { delay: 600_000 },
+      );
+      this.logger.debug(
+        `added deletion job: ${job.id} of room: ${room.id}`,
+        'roomService',
+      );
+      await this.redisService
+        .getClient()
+        .set(`room:${room.id}:deletionJob`, job.id);
+    }
+
+    await room.updateOne({
+      $pull: { users: userId },
+    });
   }
 
   async deleteRoom(roomId: string) {
-    try {
-      const room = await this.roomModel.findById(roomId);
-      if (!room) {
-        throw new NotFoundException('Room not found');
-      }
-
-      await room.deleteOne();
-
-      return room.id;
-    } catch (e) {
-      this.logger.error(e.message)
-      throw e;
+    const room = await this.roomModel.findById(roomId);
+    if (!room) {
+      throw new NotFoundException('Room not found');
     }
+
+    await room.deleteOne();
+
+    return room.id;
   }
 }
