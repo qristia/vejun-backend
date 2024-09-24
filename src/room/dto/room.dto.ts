@@ -1,6 +1,5 @@
 import { Expose } from 'class-transformer';
-import { IsBoolean, IsOptional, IsString, IsUrl } from 'class-validator';
-import { BaseDto } from 'src/util/base_dto';
+import { IsArray, IsBoolean, IsOptional, IsString, IsUrl, ValidateNested } from 'class-validator';
 
 export class CreateRoomDto {
   constructor(partial: Partial<CreateRoomDto>) {
@@ -38,6 +37,11 @@ export class UpdateRoomDto {
   @IsString()
   @IsOptional()
   thumbnailUrl?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  queue?: string[];
 }
 
 export class ChangeRoomOwnerDto {
