@@ -23,7 +23,7 @@ export class AuthController {
   @Public()
   async signIn(@Body() req: SignInDto, @Response() res: EResponse) {
     const token = await this.authService.signIn(req.username, req.password);
-    res.cookie('accessToken', token.access_token, AuthService.cookieOptions);
+    res.cookie('accessToken', token.access_token, AuthService.getCookieOptions());
     return res.send({ username: req.username });
   }
 
@@ -36,7 +36,7 @@ export class AuthController {
       req.password,
       req.name,
     );
-    res.cookie('accessToken', signUp.access_token, AuthService.cookieOptions);
+    res.cookie('accessToken', signUp.access_token, AuthService.getCookieOptions());
     return res.send({ id: signUp.id });
   }
 

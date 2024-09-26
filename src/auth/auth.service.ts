@@ -8,17 +8,19 @@ import { CookieOptions } from 'express';
 
 @Injectable()
 export class AuthService {
-  static cookieOptions: CookieOptions = {
-    expires: new Date(Date.now() + 1000 * 60 * 60 * 24),
-    sameSite: 'strict',
-    httpOnly: true,
-    signed: true,
-  };
-
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
   ) {}
+
+  static getCookieOptions() {
+    return {
+      expires: new Date(Date.now() + 1000 * 60 * 60 * 24),
+      sameSite: 'strict',
+      httpOnly: true,
+      signed: true,
+    } as CookieOptions;
+  }
 
   async signIn(email: string, password: string): Promise<TokenDto> {
     const user = await this.usersService.findByEmail(email);
